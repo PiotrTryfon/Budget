@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Budżet</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Apply stored theme before render to prevent flash -->
+  <script>
+    (function(){ var t=localStorage.getItem('budzet_theme'); if(t&&t!=='light') document.documentElement.setAttribute('data-theme',t); })();
+  </script>
+</head>
+<body>
+
+  <!-- Mobile top bar (hidden on desktop via CSS) -->
+  <div class="mobile-topbar" id="mobile-topbar">
+    <button class="btn-hamburger" id="btn-menu" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <span class="mobile-title">Budżet</span>
+  </div>
+
+  <!-- Sidebar overlay (mobile only) -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Profile selection screen (shown on startup) -->
+  <div id="profile-screen"></div>
+
+  <!-- Main app layout -->
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">₿</span>
+        <span class="brand-text">Budżet</span>
+      </div>
+
+      <!-- Active profile indicator — click to switch -->
+      <div class="sidebar-profile" id="sidebar-profile-wrap" title="Zmień profil">
+        <div class="sidebar-profile-initial" id="sidebar-profile-initial">?</div>
+        <span class="sidebar-profile-name" id="sidebar-profile-name">Profil</span>
+        <span class="sidebar-profile-switch">zmień</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" data-screen="dashboard" class="nav-link active">
+          <span class="nav-icon">⊞</span> Dashboard
+        </a>
+        <a href="#" data-screen="import" class="nav-link">
+          <span class="nav-icon">↑</span> Import
+        </a>
+        <a href="#" data-screen="transactions" class="nav-link">
+          <span class="nav-icon">≡</span> Transakcje
+        </a>
+        <a href="#" data-screen="categories" class="nav-link">
+          <span class="nav-icon">◈</span> Kategorie
+        </a>
+        <a href="#" data-screen="charts" class="nav-link">
+          <span class="nav-icon">⌇</span> Wykresy
+        </a>
+        <a href="#" data-screen="backup" class="nav-link">
+          <span class="nav-icon">⇓</span> Backup
+        </a>
+        <a href="#" data-screen="settings" class="nav-link">
+          <span class="nav-icon">⚙</span> Ustawienia
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="btn-backup-quick" class="btn-export">Eksportuj backup</button>
+      </div>
+    </aside>
+
+    <main>
+      <section id="screen-dashboard"    class="screen"></section>
+      <section id="screen-import"       class="screen hidden"></section>
+      <section id="screen-transactions" class="screen hidden"></section>
+      <section id="screen-categories"   class="screen hidden"></section>
+      <section id="screen-charts"       class="screen hidden"></section>
+      <section id="screen-backup"       class="screen hidden"></section>
+      <section id="screen-settings"     class="screen hidden"></section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+    integrity="sha512-OQmokBbxMkVOmYcKhJVWKGpheNAoJcFCXDi5KYNrqJjb6hHHHE6aKKCjVYAKQ5OT56Yq0GecRPQHAJMY4F9w=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+    integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3oD+sCoJrzXJ+yKiTc8gg3v5f2sXmrAOB3Y2JFOwD/sOGXQiCOaag=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="js/models.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/categorizer.js"></script>
+  <script src="js/csv-adapter.js"></script>
+  <script src="js/pdf-adapter.js"></script>
+  <script src="js/backup.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/profiles.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/categories.js"></script>
+  <script src="js/transactions.js"></script>
+  <script src="js/import.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/pin.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

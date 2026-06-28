@@ -1,0 +1,15 @@
+# Financial data — never commit
+backup/
+imports_archive/
+
+# Claude Code local config
+.claude/
+
+# Editor / OS
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Planning docs (local only)
+plan.md
+spec-aplikacja-budzet.md
