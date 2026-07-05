@@ -29,8 +29,8 @@ function renderProfileCards(screen, onSelect) {
   grid.innerHTML = profiles.map(p => `
     <div class="profile-card" data-id="${p.id}" tabindex="0">
       <button class="btn-rename-profile" data-id="${p.id}" title="Zmień nazwę">✎</button>
-      <div class="profile-avatar">${escHtmlProf(p.name.charAt(0).toUpperCase())}</div>
-      <div class="profile-card-name">${escHtmlProf(p.name)}</div>
+      <div class="profile-avatar">${escHtml(p.name.charAt(0).toUpperCase())}</div>
+      <div class="profile-card-name">${escHtml(p.name)}</div>
     </div>
   `).join('') + `
     <div class="profile-card profile-card-new" id="btn-new-profile" tabindex="0">
@@ -67,9 +67,7 @@ function renderProfileCards(screen, onSelect) {
 }
 
 function selectProfile(id, onSelect) {
-  setActiveProfile(id);
   hideProfileScreen();
-  updateSidebarProfile();
   onSelect(id);
 }
 
@@ -88,17 +86,17 @@ function showNewProfileForm(grid, screen, onSelect) {
   grid.replaceChild(form, newCard);
   form.querySelector('#new-profile-name').focus();
 
-  const confirm = () => {
+  const doCreate = () => {
     const name = form.querySelector('#new-profile-name').value.trim();
     if (!name) { form.querySelector('#new-profile-name').focus(); return; }
     createProfileEntry(name);
     renderProfileCards(screen, onSelect);
   };
 
-  form.querySelector('#btn-create-confirm').addEventListener('click', confirm);
+  form.querySelector('#btn-create-confirm').addEventListener('click', doCreate);
   form.querySelector('#btn-create-cancel').addEventListener('click', () => renderProfileCards(screen, onSelect));
   form.querySelector('#new-profile-name').addEventListener('keydown', e => {
-    if (e.key === 'Enter') confirm();
+    if (e.key === 'Enter') doCreate();
     if (e.key === 'Escape') renderProfileCards(screen, onSelect);
   });
 }
@@ -143,6 +141,3 @@ function updateSidebarProfile() {
   if (initialEl) initialEl.textContent = profile.name.charAt(0).toUpperCase();
 }
 
-function escHtmlProf(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

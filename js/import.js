@@ -247,6 +247,7 @@ function renderEditableTable(container) {
       </div>
       <div style="display:flex;gap:0.5rem;align-self:flex-start">
         <button id="btn-load-another" class="btn-ghost">Wczytaj inny plik</button>
+        <button id="btn-cancel-import" class="btn-ghost">Anuluj</button>
         <button id="btn-confirm-import">Zatwierdź import (${newCount})</button>
       </div>
     </div>
@@ -275,7 +276,7 @@ function renderEditableTable(container) {
                   : '<span class="badge badge-new">nowy</span>'}</td>
               <td><input class="cell-input" type="date"   data-idx="${i}" data-field="date"        value="${row.date}"></td>
               <td><input class="cell-input" type="number" data-idx="${i}" data-field="amount"      value="${row.amount}" step="0.01" style="width:90px"></td>
-              <td><input class="cell-input" type="text"   data-idx="${i}" data-field="description" value="${escAttr(row.description)}" style="width:100%"></td>
+              <td><input class="cell-input" type="text"   data-idx="${i}" data-field="description" value="${escHtml(row.description)}" style="width:100%"></td>
               <td class="${row.needsReview && !row._isDuplicate ? 'cell-review' : ''}">
                 <select class="cell-input" data-idx="${i}" data-field="categoryId">
                   ${catOptions}
@@ -348,6 +349,13 @@ function renderEditableTable(container) {
     });
   });
 
+  // Cancel — discard pending rows and return to drop zone
+  tableArea.querySelector('#btn-cancel-import').addEventListener('click', () => {
+    _pendingRows     = [];
+    _pendingFileName = '';
+    renderImport(container);
+  });
+
   // Load another file
   tableArea.querySelector('#btn-load-another').addEventListener('click', () => {
     _pendingRows     = [];
@@ -418,10 +426,3 @@ function showImportMsg(container, type, msg) {
     `<div class="panel" style="margin-top:1rem"><p class="msg-${type}">${escHtml(msg)}</p></div>`;
 }
 
-function escHtml(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function escAttr(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}

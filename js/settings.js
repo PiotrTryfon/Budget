@@ -109,11 +109,11 @@ function renderAccountList(container) {
         <tr>
           <td>
             <span class="account-dot" style="background:${a.color}"></span>
-            <strong>${settingsEsc(a.name)}</strong>
+            <strong>${escHtml(a.name)}</strong>
           </td>
           <td>
             ${(a.identifiers || []).length > 0
-              ? (a.identifiers).map(id => `<span class="tag-chip">${settingsEsc(id)}</span>`).join(' ')
+              ? (a.identifiers).map(id => `<span class="tag-chip">${escHtml(id)}</span>`).join(' ')
               : '<span style="color:var(--text-muted);font-size:0.8rem">brak</span>'}
           </td>
           <td style="white-space:nowrap">
@@ -144,7 +144,7 @@ function showAccountForm(id, container) {
   form.innerHTML = `
     <div class="panel" style="margin-top:0.75rem;max-width:440px">
       <h4>${existing ? 'Edytuj' : 'Nowe'} konto</h4>
-      <label>Nazwa <input type="text" id="af-name" value="${settingsEsc(existing?.name || '')}" placeholder="np. Konto prywatne Pekao"></label>
+      <label>Nazwa <input type="text" id="af-name" value="${escHtml(existing?.name || '')}" placeholder="np. Konto prywatne Pekao"></label>
       <label>Kolor <input type="color" id="af-color" value="${existing?.color || '#3b82f6'}"></label>
       <label>
         Identyfikatory
@@ -152,7 +152,7 @@ function showAccountForm(id, container) {
           Jeden per linia. Wpisz numer IBAN, fragment nazwy pliku CSV
           lub dowolny tekst, który pojawia się w wyeksportowanym pliku tylko dla tego konta.
         </span>
-        <textarea id="af-ids" rows="5" style="font-family:monospace;font-size:0.82rem" placeholder="PL12 3456 7890 1234 5678 9012 3456&#10;prywatne.csv">${settingsEsc(identifiersStr)}</textarea>
+        <textarea id="af-ids" rows="5" style="font-family:monospace;font-size:0.82rem" placeholder="PL12 3456 7890 1234 5678 9012 3456&#10;prywatne.csv">${escHtml(identifiersStr)}</textarea>
       </label>
       <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
         <button id="af-save">Zapisz</button>
@@ -178,7 +178,7 @@ function showAccountForm(id, container) {
 
 function showWipeConfirm(container) {
   const profile = getProfiles().find(p => p.id === getActiveProfileId());
-  const name    = settingsEsc(profile?.name || 'ten profil');
+  const name    = escHtml(profile?.name || 'ten profil');
   const box     = container.querySelector('#wipe-confirm');
 
   box.innerHTML = `
@@ -200,6 +200,3 @@ function showWipeConfirm(container) {
   });
 }
 
-function settingsEsc(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

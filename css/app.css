@@ -846,15 +846,58 @@ label input, label select { color: var(--text); }
 
 /* ─── Category chip picker (popup + form) ─── */
 
+.cat-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  /* transparent — just catches outside taps */
+}
+
 .cat-multi-popup {
   position: absolute;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 6px 24px rgba(0,0,0,0.13);
-  z-index: 9999;
-  max-width: 320px;
+  z-index: 9991;
+  max-width: 340px;
   overflow: hidden;
+}
+
+.cat-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cat-popup-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cat-popup-done {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  min-height: 0;
+}
+
+.cat-pick-clear {
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  min-height: 0;
 }
 
 .cat-chip-picker {
@@ -1303,6 +1346,9 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
   .panel { padding: 1rem; }
 
   /* Category picker — bottom sheet on mobile */
+  .cat-editor-overlay {
+    background: rgba(0,0,0,0.35);
+  }
   .cat-multi-popup {
     position: fixed !important;
     left: 0 !important;
@@ -1310,9 +1356,11 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
     bottom: 0 !important;
     top: auto !important;
     max-width: 100%;
-    border-radius: var(--radius) var(--radius) 0 0;
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.22);
   }
+  .cat-popup-header { padding: 0.85rem 1rem 0.6rem; }
+  .cat-popup-done { padding: 0.4rem 1.1rem; font-size: 0.9rem; }
   .cat-chip-picker {
     gap: 0.5rem;
     padding: 0.75rem;

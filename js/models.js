@@ -1,3 +1,7 @@
+function escHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function generateId() {
   // crypto.randomUUID() requires secure context — fallback for file:// in older browsers
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -20,7 +24,6 @@ function getMonthKey(dateStr) {
   return dateStr.slice(0, 7);
 }
 
-// TODO: replace with user's actual category list
 const DEFAULT_CATEGORIES = [
   { name: 'Jedzenie',     color: '#ef4444' },  // red
   { name: 'Transport',    color: '#3b82f6' },  // blue
@@ -31,12 +34,11 @@ const DEFAULT_CATEGORIES = [
   { name: 'Inne',         color: '#eab308' },  // yellow
 ];
 
-function createCategory(name, color, monthlyBudget = null) {
+function createCategory(name, color) {
   return {
     id: generateId(),
     name,
     color,
-    monthlyBudget,
     requiresConfirmation: false,
     createdAt: new Date().toISOString(),
   };
@@ -50,7 +52,6 @@ function createCategoryRule(pattern, matchType, categoryId, priority = 0) {
     categoryId,
     priority,
     requiresConfirmation: false,
-    createdFrom: 'manual',
   };
 }
 
@@ -84,7 +85,5 @@ function createImportBatch({ bank, sourceType, fileName, rowCount, duplicatesSki
     importedAt: new Date().toISOString(),
     rowCount,
     duplicatesSkipped,
-    needsReviewCount: 0,
-    pageCount: null,
   };
 }

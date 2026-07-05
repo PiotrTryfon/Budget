@@ -69,7 +69,7 @@ function renderTxTable(container) {
         <tbody>
           ${rows.map(t => {
             const allCatIds = [t.categoryId, ...(t.extraCategoryIds || [])].filter(Boolean);
-            return `<tr>
+            return `<tr class="${t.needsReview ? 'row-review' : ''}">
               <td>${t.date}</td>
               <td class="${t.amount < 0 ? 'amount-neg' : 'amount-pos'}">${t.amount.toFixed(2)}</td>
               <td>${escHtml(t.description)}</td>
@@ -122,13 +122,22 @@ function openCategoryEditor(cell, tx, onDone) {
   const cats = getCategories();
   let selected = [tx.categoryId, ...(tx.extraCategoryIds || [])].filter(Boolean);
 
+  // Overlay so tapping outside on mobile closes the popup reliably
+  const overlay = document.createElement('div');
+  overlay.className = 'cat-editor-overlay';
+
   const popup = document.createElement('div');
   popup.className = 'cat-multi-popup';
 
-  // Position: below cell on desktop, fixed bottom sheet on mobile (CSS handles mobile)
+  // Position below cell on desktop; CSS overrides to bottom sheet on mobile
   const rect = cell.getBoundingClientRect();
   popup.style.top  = `${rect.bottom + window.scrollY + 4}px`;
   popup.style.left = `${rect.left   + window.scrollX}px`;
+
+  function close() {
+    overlay.remove();
+    onDone();
+  }
 
   function save() {
     const [newPrimary = null, ...newExtras] = selected;
@@ -143,6 +152,10 @@ function openCategoryEditor(cell, tx, onDone) {
 
   function renderChips() {
     popup.innerHTML = `
+      <div class="cat-popup-header">
+        <span class="cat-popup-title">Kategorie</span>
+        <button class="cat-popup-done">Gotowe</button>
+      </div>
       <div class="cat-chip-picker">
         ${cats.map(c => `
           <button class="cat-pick-chip${selected.includes(c.id) ? ' selected' : ''}"
@@ -150,8 +163,16 @@ function openCategoryEditor(cell, tx, onDone) {
             ${escHtml(c.name)}
           </button>
         `).join('')}
+        ${selected.length > 0 ? `<button class="cat-pick-clear">✕ Wyczyść</button>` : ''}
       </div>
     `;
+    popup.querySelector('.cat-popup-done').addEventListener('click', close);
+    const clearBtn = popup.querySelector('.cat-pick-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      selected = [];
+      save();
+      renderChips();
+    });
     popup.querySelectorAll('.cat-pick-chip').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
@@ -165,18 +186,11 @@ function openCategoryEditor(cell, tx, onDone) {
   }
 
   renderChips();
-  document.body.appendChild(popup);
-
-  setTimeout(() => {
-    function outsideClick(e) {
-      if (!popup.contains(e.target)) {
-        popup.remove();
-        document.removeEventListener('mousedown', outsideClick);
-        onDone();
-      }
-    }
-    document.addEventListener('mousedown', outsideClick);
-  }, 0);
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) close();
+  });
 }
 
 // ─── Manual form ──────────────────────────────────────────────────────────
@@ -270,6 +284,3 @@ function showUndoToast(container) {
   }, 5000);
 }
 
-function escHtml(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

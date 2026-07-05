@@ -508,6 +508,3 @@ function executeRulesImport(items, newCats, importedCats, container) {
   previewEl.innerHTML = `<p class="msg-success" style="margin-top:0.75rem">&#10003; Import zakończony: ${parts.join(', ')}.</p>`;
 }
 
-function escHtml(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

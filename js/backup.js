@@ -75,10 +75,7 @@ function restoreBackup(file, statusEl) {
         return;
       }
       importAll(data);
-      statusEl.className = 'msg-success';
-      const txCount  = (data.transactions || []).length;
-      const catCount = (data.categories  || []).length;
-      statusEl.textContent = `Backup wczytany (${txCount} transakcji, ${catCount} kategorii). Odśwież stronę.`;
+      navigate('dashboard');
     } catch {
       statusEl.className = 'msg-error';
       statusEl.textContent = 'Błąd: nie udało się odczytać pliku JSON.';

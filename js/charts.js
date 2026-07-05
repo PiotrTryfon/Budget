@@ -33,7 +33,7 @@ function _renderChartGrid(container) {
     ${views.map(v => `
       <div class="chart-card" id="chart-card-${v.id}">
         <div class="chart-card-header">
-          <span class="chart-card-title">${_cEsc(v.name)}</span>
+          <span class="chart-card-title">${escHtml(v.name)}</span>
           <span class="chart-card-meta">${_periodLabel(v.period)}</span>
           <div class="chart-card-actions">
             <button class="btn-ghost btn-edit-chart" data-id="${v.id}"
@@ -73,7 +73,7 @@ function _showChartBuilder(id, container) {
     <div class="panel" style="max-width:540px;margin-bottom:1.5rem">
       <h4>${existing ? 'Edytuj' : 'Nowy'} widok</h4>
 
-      <label>Nazwa <input type="text" id="cb-name" value="${_cEsc(existing?.name || '')}"
+      <label>Nazwa <input type="text" id="cb-name" value="${escHtml(existing?.name || '')}"
         placeholder="np. Wydatki czerwiec"></label>
 
       <label>Typ wykresu
@@ -101,7 +101,7 @@ function _showChartBuilder(id, container) {
               <input type="checkbox" value="${c.id}" class="cb-cat"
                 ${(existing?.categoryIds || []).includes(c.id) ? 'checked' : ''}>
               <span class="account-dot" style="background:${c.color}"></span>
-              ${_cEsc(c.name)}
+              ${escHtml(c.name)}
             </label>`).join('')}
         </div>
       </div>
@@ -202,7 +202,7 @@ function _chartBarCategory(canvas, wrap, view, txs, cats) {
         tooltip: { callbacks: { label: ctx => `${ctx.parsed.x.toFixed(2)} zł` } },
       },
       scales: {
-        x: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: '#f1f5f9' } },
+        x: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: _chartGridColor() } },
         y: { grid: { display: false } },
       },
     },
@@ -254,7 +254,7 @@ function _chartMonthly(canvas, wrap, view, txs) {
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} zł` } },
       },
       scales: {
-        y: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: '#f1f5f9' } },
+        y: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: _chartGridColor() } },
         x: { grid: { display: false } },
       },
     },
@@ -301,7 +301,7 @@ function _chartTrend(canvas, wrap, view, txs, cats) {
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} zł` } },
       },
       scales: {
-        y: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: '#f1f5f9' } },
+        y: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: _chartGridColor() } },
         x: { grid: { display: false } },
       },
     },
@@ -339,6 +339,9 @@ function _destroyAllCharts() {
   _chartInstances = {};
 }
 
-function _cEsc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function _chartGridColor() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'dark')  return '#334155';
+  if (t === 'vivid') return '#1e2d4a';
+  return '#f1f5f9';
 }

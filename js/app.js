@@ -77,6 +77,13 @@ function _doInit() {
     navigate('dashboard');
     return;
   }
+  // Auto-restore last used profile so refresh doesn't lose context
+  var lastId   = getLastProfileId();
+  var profiles = getProfiles();
+  if (lastId && profiles.find(function(p) { return p.id === lastId; })) {
+    loadProfile(lastId);
+    return;
+  }
   showProfileScreen(function(id) { loadProfile(id); });
 }
 

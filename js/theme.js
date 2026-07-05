@@ -1,5 +1,4 @@
-var THEME_KEY    = 'budzet_theme';
-var THEME_NAMES  = { light: 'Jasny', dark: 'Ciemny', vivid: 'Vivid' };
+var THEME_KEY = 'budzet_theme';
 
 function getTheme() {
   return localStorage.getItem(THEME_KEY) || 'light';
@@ -15,7 +14,3 @@ function setTheme(name) {
   }
 }
 
-function applyStoredTheme() {
-  var t = localStorage.getItem(THEME_KEY);
-  if (t && t !== 'light') document.documentElement.setAttribute('data-theme', t);
-}
