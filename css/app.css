@@ -1471,6 +1471,21 @@ hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
   color: var(--accent);
 }
 
+/* Ghost button dark/vivid overrides */
+[data-theme="dark"] .btn-ghost,
+[data-theme="vivid"] .btn-ghost {
+  background: var(--border);
+  color: var(--text);
+}
+[data-theme="dark"] .btn-ghost:hover:not(:disabled) {
+  background: #475569;
+  opacity: 1;
+}
+[data-theme="vivid"] .btn-ghost:hover:not(:disabled) {
+  background: #253656;
+  opacity: 1;
+}
+
 /* ─── Theme picker (settings) ─── */
 
 .theme-picker {
