@@ -1,5 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { font-size: 106.25%; }
+
 :root {
   --sidebar-bg: #0f172a;
   --sidebar-border: rgba(255,255,255,0.07);
@@ -55,7 +57,7 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 
