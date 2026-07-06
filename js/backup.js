@@ -3,13 +3,21 @@ function renderBackup(container) {
     <h2>Backup</h2>
     <div class="backup-section">
       <div class="panel">
-        <h4>Eksport</h4>
+        <h4>Eksport JSON (pełny backup)</h4>
         <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem">
           Zapisuje wszystkie transakcje, kategorie, reguły i historię importów jako plik JSON.
           Zapisz do folderu <code>backup/</code> obok aplikacji.
           Przeglądarka zapamięta wybrany folder na następny raz.
         </p>
         <button id="btn-export">Eksportuj backup (JSON)</button>
+      </div>
+
+      <div class="panel" style="margin-top:1rem">
+        <h4>Eksport CSV</h4>
+        <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem">
+          Pobiera wszystkie transakcje jako plik CSV — otwieralny w Excel lub Google Sheets.
+        </p>
+        <button id="btn-export-csv">Pobierz CSV</button>
       </div>
 
       <div class="panel" style="margin-top:1rem">
@@ -23,6 +31,7 @@ function renderBackup(container) {
   `;
 
   container.querySelector('#btn-export').addEventListener('click', quickExport);
+  container.querySelector('#btn-export-csv').addEventListener('click', exportCsv);
   container.querySelector('#btn-import').addEventListener('click', () => {
     const file     = container.querySelector('#backup-file').files[0];
     const statusEl = container.querySelector('#import-status');
@@ -30,6 +39,41 @@ function renderBackup(container) {
     if (!confirm('To zastąpi wszystkie obecne dane. Kontynuować?')) return;
     restoreBackup(file, statusEl);
   });
+}
+
+function exportCsv() {
+  const txs  = getTransactions().sort((a, b) => a.date.localeCompare(b.date));
+  const cats = Object.fromEntries(getCategories().map(c => [c.id, c.name]));
+  const accs = Object.fromEntries(getAccounts().map(a => [a.id, a.name]));
+
+  const csvCell = v => {
+    const s = String(v ?? '');
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+
+  const header = ['Data', 'Kwota', 'Opis', 'Kategoria', 'Konto', 'Transfer wewnętrzny', 'Źródło kategorii'];
+  const rows   = txs.map(t => [
+    t.date,
+    t.amount.toFixed(2),
+    t.description || '',
+    cats[t.categoryId] || '',
+    accs[t.accountId]  || '',
+    t.isInternalTransfer ? 'tak' : 'nie',
+    t.categorySource || '',
+  ]);
+
+  const csv  = [header, ...rows].map(r => r.map(csvCell).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `budzet-transakcje-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function quickExport() {

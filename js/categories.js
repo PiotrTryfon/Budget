@@ -7,7 +7,6 @@ const COLOR_PALETTE = [
 function nextAvailableColor() {
   const used = new Set(getCategories().map(c => c.color.toLowerCase()));
   const free = COLOR_PALETTE.find(c => !used.has(c));
-  // if all taken, pick by index so it at least cycles through palette
   return free || COLOR_PALETTE[getCategories().length % COLOR_PALETTE.length];
 }
 
@@ -26,6 +25,13 @@ function renderCategories(container) {
         <div id="rules-list"></div>
         <button id="btn-add-rule" style="margin-top:0.75rem">+ Dodaj regułę</button>
         <div id="rule-form"></div>
+        <div class="rule-tester">
+          <label style="font-size:0.85rem;font-weight:500;display:block;margin-bottom:0.35rem">
+            Testuj opis transakcji
+          </label>
+          <input type="text" id="rule-test-input" placeholder="np. BIEDRONKA 123 WARSZAWA">
+          <div id="rule-test-result" class="tester-result" style="display:none"></div>
+        </div>
         <div class="rules-io-bar">
           <button id="btn-export-rules" class="btn-ghost">&#8595; Eksportuj reguły</button>
           <label class="btn-ghost rules-import-label">
@@ -48,6 +54,38 @@ function renderCategories(container) {
     if (file) previewRulesImport(file, container);
     e.target.value = '';
   });
+
+  // Rule tester
+  container.querySelector('#rule-test-input').addEventListener('input', e => {
+    const desc    = e.target.value.trim();
+    const resultEl = container.querySelector('#rule-test-result');
+    if (!desc) { resultEl.style.display = 'none'; return; }
+
+    const rules   = getCategoryRules();
+    const cats    = getCategories();
+    const catMap  = Object.fromEntries(cats.map(c => [c.id, c]));
+
+    // Check transfer rules first
+    const transferRules = rules.filter(r => r.isTransferRule);
+    const matchedTransfer = transferRules.find(r => matchesRule(desc, r));
+    if (matchedTransfer) {
+      resultEl.className  = 'tester-result transfer';
+      resultEl.textContent = `Transfer wewnętrzny — reguła: "${matchedTransfer.pattern}" (${matchedTransfer.matchType})`;
+      resultEl.style.display = '';
+      return;
+    }
+
+    const { categoryId, matchedRule } = categorizeTransaction(desc, rules);
+    resultEl.style.display = '';
+    if (categoryId && matchedRule) {
+      const cat = catMap[categoryId];
+      resultEl.className  = 'tester-result match';
+      resultEl.innerHTML  = `&#10003; Kategoria: <strong>${escHtml(cat?.name || '?')}</strong> — reguła: "${escHtml(matchedRule.pattern)}" (${matchedRule.matchType}, priorytet ${matchedRule.priority})`;
+    } else {
+      resultEl.className  = 'tester-result no-match';
+      resultEl.textContent = 'Brak dopasowania — transakcja trafiłaby do "Bez kategorii"';
+    }
+  });
 }
 
 function renderCatList(container) {
@@ -56,14 +94,17 @@ function renderCatList(container) {
   if (cats.length === 0) { list.innerHTML = '<p style="color:var(--text-muted)">Brak kategorii.</p>'; return; }
 
   list.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Kolor</th><th>Nazwa</th><th></th></tr></thead>
+    <thead><tr><th>Kolor</th><th>Nazwa</th><th>Budżet/mies.</th><th></th></tr></thead>
     <tbody>
-      ${cats.map(c => `
+      ${cats.map((c, idx) => `
         <tr>
           <td><input type="color" value="${c.color}" data-id="${c.id}" class="color-picker" style="width:2rem;height:1.5rem;border:none;cursor:pointer;background:none;padding:0"></td>
           <td><strong>${escHtml(c.name)}</strong></td>
+          <td style="font-size:0.82rem;color:var(--text-muted)">${c.monthlyBudget > 0 ? c.monthlyBudget + ' zł' : '—'}</td>
           <td style="white-space:nowrap">
-            <button class="btn-edit-cat" data-id="${c.id}" style="padding:0.3rem 0.6rem;font-size:0.78rem">Edytuj</button>
+            <button class="btn-move-up" data-id="${c.id}" style="padding:0.2rem 0.4rem;font-size:0.75rem" ${idx === 0 ? 'disabled' : ''}>↑</button>
+            <button class="btn-move-down" data-id="${c.id}" style="padding:0.2rem 0.4rem;font-size:0.75rem;margin-left:0.1rem" ${idx === cats.length - 1 ? 'disabled' : ''}>↓</button>
+            <button class="btn-edit-cat" data-id="${c.id}" style="padding:0.3rem 0.6rem;font-size:0.78rem;margin-left:0.25rem">Edytuj</button>
             <button class="btn-del-cat btn-danger" data-id="${c.id}" style="padding:0.3rem 0.6rem;font-size:0.78rem;margin-left:0.25rem">Usuń</button>
           </td>
         </tr>`).join('')}
@@ -75,6 +116,12 @@ function renderCatList(container) {
       const cat = getCategories().find(c => c.id === e.target.dataset.id);
       if (cat) { upsertCategory({ ...cat, color: e.target.value }); renderCatList(container); }
     });
+  });
+  list.querySelectorAll('.btn-move-up').forEach(btn => {
+    btn.addEventListener('click', () => { moveCategoryUp(btn.dataset.id); renderCatList(container); });
+  });
+  list.querySelectorAll('.btn-move-down').forEach(btn => {
+    btn.addEventListener('click', () => { moveCategoryDown(btn.dataset.id); renderCatList(container); });
   });
   list.querySelectorAll('.btn-edit-cat').forEach(btn => {
     btn.addEventListener('click', e => showCatForm(e.target.dataset.id, container));
@@ -94,10 +141,15 @@ function showCatForm(id, container) {
   const existing = id ? getCategories().find(c => c.id === id) : null;
   const form = container.querySelector('#cat-form');
   form.innerHTML = `
-    <div class="panel" style="margin-top:0.75rem;max-width:320px">
+    <div class="panel" style="margin-top:0.75rem;max-width:340px">
       <h4>${existing ? 'Edytuj' : 'Nowa'} kategoria</h4>
       <label>Nazwa <input type="text" id="cf-name" value="${escHtml(existing?.name || '')}"></label>
       <label>Kolor <input type="color" id="cf-color" value="${existing?.color || nextAvailableColor()}"></label>
+      <label>Limit miesięczny (zł)
+        <input type="number" id="cf-budget" min="0" step="1"
+          value="${existing?.monthlyBudget > 0 ? existing.monthlyBudget : ''}"
+          placeholder="np. 1500 (pozostaw puste = brak)">
+      </label>
       <div class="toggle-row">
         <label class="toggle-label" for="cf-review">Wymaga potwierdzenia przy imporcie</label>
         <label class="toggle">
@@ -115,11 +167,13 @@ function showCatForm(id, container) {
   form.querySelector('#cf-save').addEventListener('click', () => {
     const name                = form.querySelector('#cf-name').value.trim();
     const color               = form.querySelector('#cf-color').value;
+    const budgetVal           = parseFloat(form.querySelector('#cf-budget').value);
+    const monthlyBudget       = budgetVal > 0 ? budgetVal : null;
     const requiresConfirmation = form.querySelector('#cf-review').checked;
     if (!name) { alert('Podaj nazwę.'); return; }
     upsertCategory(existing
-      ? { ...existing, name, color, requiresConfirmation }
-      : { ...createCategory(name, color), requiresConfirmation });
+      ? { ...existing, name, color, monthlyBudget, requiresConfirmation }
+      : { ...createCategory(name, color), monthlyBudget, requiresConfirmation });
     form.innerHTML = '';
     renderCatList(container);
   });
@@ -133,13 +187,15 @@ function renderRuleList(container) {
   if (rules.length === 0) { list.innerHTML = '<p style="color:var(--text-muted)">Brak reguł. Dodaj reguły, aby transakcje były automatycznie kategoryzowane.</p>'; return; }
 
   list.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Pattern</th><th>Typ</th><th>Kategoria</th><th>Prior.</th><th></th></tr></thead>
+    <thead><tr><th>Pattern</th><th>Typ</th><th>Kategoria / Akcja</th><th>Prior.</th><th></th></tr></thead>
     <tbody>
       ${rules.map(r => `
         <tr>
           <td><code style="font-size:0.8rem">${escHtml(r.pattern)}</code></td>
           <td style="color:var(--text-muted);font-size:0.8rem">${r.matchType}</td>
-          <td>${escHtml(catMap[r.categoryId] || '?')}</td>
+          <td>${r.isTransferRule
+            ? '<span class="transfer-rule-chip">⇄ Transfer wewnętrzny</span>'
+            : escHtml(catMap[r.categoryId] || '?')}</td>
           <td>${r.priority}</td>
           <td style="white-space:nowrap">
             <button class="btn-edit-rule" data-id="${r.id}" style="padding:0.3rem 0.6rem;font-size:0.78rem">Edytuj</button>
@@ -164,9 +220,10 @@ function renderRuleList(container) {
 function showRuleForm(id, container) {
   const existing = id ? getCategoryRules().find(r => r.id === id) : null;
   const cats = getCategories();
+  const isTransfer = existing?.isTransferRule || false;
   const form = container.querySelector('#rule-form');
   form.innerHTML = `
-    <div class="panel" style="margin-top:0.75rem;max-width:360px">
+    <div class="panel" style="margin-top:0.75rem;max-width:380px">
       <h4>${existing ? 'Edytuj' : 'Nowa'} reguła</h4>
       <label>Pattern <input type="text" id="rf-pattern" value="${escHtml(existing?.pattern || '')}" placeholder="np. Glovo"></label>
       <label>Typ dopasowania
@@ -176,11 +233,20 @@ function showRuleForm(id, container) {
           <option value="exact"      ${existing?.matchType === 'exact'      ? 'selected' : ''}>dokładne (exact)</option>
         </select>
       </label>
-      <label>Kategoria
-        <select id="rf-cat">
-          ${cats.map(c => `<option value="${c.id}" ${existing?.categoryId === c.id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('')}
-        </select>
-      </label>
+      <div class="toggle-row">
+        <label class="toggle-label" for="rf-transfer">Oznacz jako transfer wewnętrzny (bez kategorii)</label>
+        <label class="toggle">
+          <input type="checkbox" id="rf-transfer" ${isTransfer ? 'checked' : ''}>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="rf-cat-wrap">
+        <label>Kategoria
+          <select id="rf-cat">
+            ${cats.map(c => `<option value="${c.id}" ${existing?.categoryId === c.id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
       <label>Priorytet <input type="number" id="rf-priority" value="${existing?.priority ?? 0}"></label>
       <div class="toggle-row">
         <label class="toggle-label" for="rf-review">Wymaga potwierdzenia przy imporcie</label>
@@ -195,17 +261,29 @@ function showRuleForm(id, container) {
       </div>
     </div>
   `;
+
+  const transferChk = form.querySelector('#rf-transfer');
+  const catWrap     = form.querySelector('#rf-cat-wrap');
+  catWrap.style.display = isTransfer ? 'none' : '';
+  transferChk.addEventListener('change', () => {
+    catWrap.style.display = transferChk.checked ? 'none' : '';
+  });
+
   form.querySelector('#rf-cancel').addEventListener('click', () => { form.innerHTML = ''; });
   form.querySelector('#rf-save').addEventListener('click', () => {
-    const pattern             = form.querySelector('#rf-pattern').value.trim();
-    const matchType           = form.querySelector('#rf-type').value;
-    const categoryId          = form.querySelector('#rf-cat').value;
-    const priority            = parseInt(form.querySelector('#rf-priority').value) || 0;
+    const pattern              = form.querySelector('#rf-pattern').value.trim();
+    const matchType            = form.querySelector('#rf-type').value;
+    const isTransferRule       = form.querySelector('#rf-transfer').checked;
+    const categoryId           = isTransferRule ? null : form.querySelector('#rf-cat').value;
+    const priority             = parseInt(form.querySelector('#rf-priority').value) || 0;
     const requiresConfirmation = form.querySelector('#rf-review').checked;
-    if (!pattern || !categoryId) { alert('Wypełnij pattern i kategorię.'); return; }
+    if (!pattern || (!isTransferRule && !categoryId)) {
+      alert('Wypełnij pattern i kategorię (lub zaznacz Transfer wewnętrzny).');
+      return;
+    }
     upsertCategoryRule(existing
-      ? { ...existing, pattern, matchType, categoryId, priority, requiresConfirmation }
-      : { ...createCategoryRule(pattern, matchType, categoryId, priority), requiresConfirmation });
+      ? { ...existing, pattern, matchType, categoryId, priority, requiresConfirmation, isTransferRule }
+      : { ...createCategoryRule(pattern, matchType, categoryId, priority), requiresConfirmation, isTransferRule });
     recalculateAll();
     form.innerHTML = '';
     renderRuleList(container);
@@ -217,7 +295,7 @@ function showRuleForm(id, container) {
 async function exportRules() {
   const rules = getCategoryRules();
   const cats  = getCategories();
-  const usedCatIds = new Set(rules.map(r => r.categoryId));
+  const usedCatIds = new Set(rules.filter(r => r.categoryId).map(r => r.categoryId));
   const referencedCats = cats.filter(c => usedCatIds.has(c.id));
 
   const payload = {
@@ -274,31 +352,27 @@ function previewRulesImport(file, container) {
         return;
       }
 
-      const localCats    = getCategories();
+      const localCats     = getCategories();
       const existingRules = getCategoryRules();
 
-      // Build category id mapping (imported id → local id) and track what needs creating
       const idMap   = {};
-      const newCats = []; // {imported} objects not yet in local
+      const newCats = [];
 
       (data.categories || []).forEach(imp => {
         const match = localCats.find(c => c.name.toLowerCase() === imp.name.toLowerCase());
         if (match) {
           idMap[imp.id] = match.id;
         } else {
-          idMap[imp.id] = null; // will be created on confirm
+          idMap[imp.id] = null;
           newCats.push(imp);
         }
       });
 
-      // Classify each rule
       const items = data.rules.map(r => {
         const mappedCatId   = idMap[r.categoryId] || null;
         const mappedCatName = mappedCatId
           ? (localCats.find(c => c.id === mappedCatId)?.name || '?')
           : (data.categories?.find(c => c.id === r.categoryId)?.name || '?');
-
-        const importedCatName = data.categories?.find(c => c.id === r.categoryId)?.name || '?';
 
         const duplicate = existingRules.find(ex =>
           ex.pattern    === r.pattern &&
@@ -316,12 +390,10 @@ function previewRulesImport(file, container) {
           rule: r,
           mappedCatId,
           mappedCatName,
-          importedCatName,
           status,
           conflictWith: conflict || null,
-          // defaults: new=checked, conflict=unchecked, duplicate=n/a
           include: status === 'new',
-          replace: false, // for conflicts: replace existing?
+          replace: false,
         };
       });
 
@@ -386,7 +458,6 @@ function renderImportPreview(items, newCats, importedCats, container) {
           </tr>`;
       }
 
-      // new
       return `
         <tr class="import-row-new" data-idx="${idx}">
           <td><span class="import-status-badge badge-new-rule">nowa</span></td>
@@ -432,13 +503,7 @@ function renderImportPreview(items, newCats, importedCats, container) {
       </div>
     `;
 
-    previewEl.querySelectorAll('.chk-new').forEach(chk => {
-      chk.addEventListener('change', () => {
-        items[+chk.dataset.idx].include = chk.checked;
-        previewEl.querySelector('#checked-count').textContent = checkedCount();
-      });
-    });
-    previewEl.querySelectorAll('.chk-conflict').forEach(chk => {
+    previewEl.querySelectorAll('.chk-new,.chk-conflict').forEach(chk => {
       chk.addEventListener('change', () => {
         items[+chk.dataset.idx].include = chk.checked;
         previewEl.querySelector('#checked-count').textContent = checkedCount();
@@ -460,10 +525,8 @@ function executeRulesImport(items, newCats, importedCats, container) {
   const localCats = getCategories();
   const idMap     = {};
 
-  // Map existing categories by name
   localCats.forEach(c => { idMap[c.name.toLowerCase()] = c.id; });
 
-  // Create missing categories
   let catsCreated = 0;
   newCats.forEach(imp => {
     if (!idMap[imp.name.toLowerCase()]) {
@@ -474,7 +537,6 @@ function executeRulesImport(items, newCats, importedCats, container) {
     }
   });
 
-  // Build importedId → localId map
   const importedIdMap = {};
   importedCats.forEach(imp => {
     importedIdMap[imp.id] = idMap[imp.name.toLowerCase()] || imp.id;
@@ -489,14 +551,12 @@ function executeRulesImport(items, newCats, importedCats, container) {
 
     if (item.status === 'conflict') {
       if (!item.include) { skipped++; return; }
-      // Remove the conflicting existing rule
       if (item.conflictWith) deleteCategoryRule(item.conflictWith.id);
       upsertCategoryRule({ ...item.rule, id: generateId(), categoryId: mappedCatId });
       replaced++;
       return;
     }
 
-    // new
     if (!item.include) { skipped++; return; }
     upsertCategoryRule({ ...item.rule, id: generateId(), categoryId: mappedCatId });
     added++;
@@ -516,4 +576,3 @@ function executeRulesImport(items, newCats, importedCats, container) {
   const previewEl = container.querySelector('#rules-import-preview');
   previewEl.innerHTML = `<p class="msg-success" style="margin-top:0.75rem">&#10003; Import zakończony: ${parts.join(', ')}.</p>`;
 }
-

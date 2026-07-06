@@ -1,7 +1,11 @@
-var _lastDeletedTx = null;
-var _undoTimer     = null;
+var _lastDeletedTx  = null;
+var _undoTimer      = null;
+var _txSortCol      = 'date';
+var _txSortDir      = 'desc';
+var _selectedTxIds  = new Set();
 
 function renderTransactions(container) {
+  _selectedTxIds = new Set();
   const transactions = getTransactions();
   const months = [...new Set(transactions.map(t => t.monthKey))].sort().reverse();
   const now = new Date();
@@ -19,6 +23,7 @@ function renderTransactions(container) {
         <option value="__none__">Bez kategorii</option>
         ${getCategories().map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
       </select>
+      <input type="text" id="filter-search" placeholder="Szukaj w opisie…" style="flex:1;min-width:120px;max-width:240px">
       <label>
         <input type="checkbox" id="filter-transfers"> Pokaż transfery wewn.
       </label>
@@ -26,25 +31,29 @@ function renderTransactions(container) {
     <div id="tx-table-wrap"></div>
     <button id="btn-add-manual" style="margin-top:1rem">+ Dodaj ręcznie</button>
     <div id="manual-form"></div>
+    <div class="bulk-bar" id="tx-bulk-bar"></div>
   `;
 
   const doRender = () => renderTxTable(container);
   container.querySelector('#filter-month').addEventListener('change', doRender);
   container.querySelector('#filter-category').addEventListener('change', doRender);
   container.querySelector('#filter-transfers').addEventListener('change', doRender);
+  container.querySelector('#filter-search').addEventListener('input', doRender);
   container.querySelector('#btn-add-manual').addEventListener('click', () => renderManualForm(container, doRender));
 
   doRender();
 }
 
 function renderTxTable(container) {
+  _selectedTxIds = new Set();
+
   const month         = container.querySelector('#filter-month').value;
   const catFilter     = container.querySelector('#filter-category').value;
   const showTransfers = container.querySelector('#filter-transfers').checked;
+  const searchTerm    = (container.querySelector('#filter-search').value || '').toLowerCase().trim();
 
   let rows = getTransactions().filter(t => t.monthKey === month);
   if (!showTransfers) rows = rows.filter(t => !t.isInternalTransfer);
-
   if (catFilter === '__none__') {
     rows = rows.filter(t => !t.categoryId && !(t.extraCategoryIds?.length));
   } else if (catFilter) {
@@ -52,17 +61,35 @@ function renderTxTable(container) {
       t.categoryId === catFilter || (t.extraCategoryIds || []).includes(catFilter)
     );
   }
+  if (searchTerm) {
+    rows = rows.filter(t => (t.description || '').toLowerCase().includes(searchTerm));
+  }
 
-  rows.sort((a, b) => b.date.localeCompare(a.date));
+  // Sort
+  rows.sort((a, b) => {
+    let cmp = 0;
+    if (_txSortCol === 'date')   cmp = a.date.localeCompare(b.date);
+    if (_txSortCol === 'amount') cmp = a.amount - b.amount;
+    if (_txSortCol === 'desc')   cmp = (a.description || '').localeCompare(b.description || '');
+    return _txSortDir === 'asc' ? cmp : -cmp;
+  });
 
   const catMap = Object.fromEntries(getCategories().map(c => [c.id, c]));
 
-  container.querySelector('#tx-table-wrap').innerHTML = rows.length === 0
+  function sortIcon(col) {
+    if (_txSortCol !== col) return ' <span class="sort-hint">⇅</span>';
+    return _txSortDir === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  const tableHtml = rows.length === 0
     ? '<p style="color:var(--text-muted);margin-top:1rem">Brak transakcji.</p>'
     : `<div class="table-wrap"><table>
         <thead>
           <tr>
-            <th>Data</th><th>Kwota</th><th>Opis</th>
+            <th><input type="checkbox" id="chk-select-all" title="Zaznacz wszystkie"></th>
+            <th class="th-sort${_txSortCol === 'date' ? ' sort-active' : ''}" data-col="date">Data${sortIcon('date')}</th>
+            <th class="th-sort${_txSortCol === 'amount' ? ' sort-active' : ''}" data-col="amount">Kwota${sortIcon('amount')}</th>
+            <th class="th-sort${_txSortCol === 'desc' ? ' sort-active' : ''}" data-col="desc">Opis${sortIcon('desc')}</th>
             <th>Kategorie</th><th>Transfer</th><th></th>
           </tr>
         </thead>
@@ -70,9 +97,12 @@ function renderTxTable(container) {
           ${rows.map(t => {
             const allCatIds = [t.categoryId, ...(t.extraCategoryIds || [])].filter(Boolean);
             return `<tr class="${t.needsReview ? 'row-review' : ''}">
+              <td><input type="checkbox" class="chk-bulk" data-id="${t.id}"></td>
               <td>${t.date}</td>
               <td class="${t.amount < 0 ? 'amount-neg' : 'amount-pos'}">${t.amount.toFixed(2)}</td>
-              <td>${escHtml(t.description)}</td>
+              <td class="cell-desc${t.rawRow ? ' has-raw' : ''}" data-id="${t.id}"
+                title="${t.rawRow ? 'Kliknij aby zobaczyć dane oryginalne' : ''}"
+              >${escHtml(t.description)}</td>
               <td class="cell-category" data-id="${t.id}">
                 ${allCatIds.length
                   ? allCatIds.map(id => {
@@ -91,19 +121,63 @@ function renderTxTable(container) {
         </tbody>
       </table></div>`;
 
+  container.querySelector('#tx-table-wrap').innerHTML = tableHtml;
+
+  // ── Sort headers ──
+  container.querySelectorAll('.th-sort').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (_txSortCol === col) {
+        _txSortDir = _txSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        _txSortCol = col;
+        _txSortDir = col === 'date' ? 'desc' : 'asc';
+      }
+      renderTxTable(container);
+    });
+  });
+
+  // ── Select all ──
+  const selectAllChk = container.querySelector('#chk-select-all');
+  if (selectAllChk) {
+    selectAllChk.addEventListener('change', () => {
+      if (selectAllChk.checked) {
+        rows.forEach(t => _selectedTxIds.add(t.id));
+      } else {
+        _selectedTxIds = new Set();
+      }
+      container.querySelectorAll('.chk-bulk').forEach(c => { c.checked = _selectedTxIds.has(c.dataset.id); });
+      updateBulkBar(container);
+    });
+  }
+
+  // ── Row checkboxes ──
+  container.querySelectorAll('.chk-bulk').forEach(chk => {
+    chk.addEventListener('change', () => {
+      if (chk.checked) _selectedTxIds.add(chk.dataset.id);
+      else             _selectedTxIds.delete(chk.dataset.id);
+      updateBulkBar(container);
+    });
+  });
+
+  // ── Category editor ──
   container.querySelectorAll('.cell-category').forEach(cell => {
     cell.addEventListener('click', e => {
       if (document.querySelector('.cat-multi-popup')) return;
       const tx = getTransactions().find(t => t.id === cell.dataset.id);
-      if (tx) openCategoryEditor(cell, tx, () => renderTxTable(container));
+      if (tx) openCategoryEditor(cell, tx, () => { renderTxTable(container); updateReviewBadge(); });
     });
   });
+
+  // ── Transfer checkbox ──
   container.querySelectorAll('.chk-transfer').forEach(chk => {
     chk.addEventListener('change', e => {
       const tx = getTransactions().find(t => t.id === e.target.dataset.id);
-      if (tx) upsertTransaction({ ...tx, isInternalTransfer: e.target.checked });
+      if (tx) upsertTransaction({ ...tx, isInternalTransfer: e.target.checked, transferSource: 'manual' });
     });
   });
+
+  // ── Delete ──
   container.querySelectorAll('.btn-del-tx').forEach(btn => {
     btn.addEventListener('click', e => {
       const { confirmDelete } = getSettings();
@@ -114,6 +188,82 @@ function renderTxTable(container) {
       showUndoToast(container);
     });
   });
+
+  // ── Raw data popup ──
+  container.querySelectorAll('.cell-desc.has-raw').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const tx = getTransactions().find(t => t.id === cell.dataset.id);
+      if (tx?.rawRow) showRawDataPopup(tx);
+    });
+  });
+
+  updateBulkBar(container);
+}
+
+// ── Bulk action bar ────────────────────────────────────────────────────────
+
+function updateBulkBar(container) {
+  const bar  = container.querySelector('#tx-bulk-bar');
+  if (!bar) return;
+  const n    = _selectedTxIds.size;
+  const cats = getCategories();
+
+  if (n === 0) {
+    bar.classList.remove('visible');
+    bar.innerHTML = '';
+    return;
+  }
+
+  bar.classList.add('visible');
+  bar.innerHTML = `
+    <span class="bulk-count">${n} zaznaczon${n === 1 ? 'a' : 'ych'}</span>
+    <select id="bulk-cat-sel">
+      <option value="">-- wybierz kategorię --</option>
+      ${cats.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
+    </select>
+    <button id="btn-bulk-apply">Zastosuj kategorię</button>
+    <button id="btn-bulk-clear" class="btn-ghost">Odznacz wszystkie</button>
+  `;
+
+  bar.querySelector('#btn-bulk-apply').addEventListener('click', () => {
+    const catId = bar.querySelector('#bulk-cat-sel').value;
+    if (!catId) { alert('Wybierz kategorię.'); return; }
+    const txs = getTransactions();
+    _selectedTxIds.forEach(id => {
+      const tx = txs.find(t => t.id === id);
+      if (tx) upsertTransaction({ ...tx, categoryId: catId, extraCategoryIds: [], categorySource: 'manual', needsReview: false });
+    });
+    _selectedTxIds = new Set();
+    renderTxTable(container);
+    updateReviewBadge();
+  });
+
+  bar.querySelector('#btn-bulk-clear').addEventListener('click', () => {
+    _selectedTxIds = new Set();
+    renderTxTable(container);
+  });
+}
+
+// ── Raw data popup ─────────────────────────────────────────────────────────
+
+function showRawDataPopup(tx) {
+  const overlay = document.createElement('div');
+  overlay.className = 'raw-popup-overlay';
+  const rows = Object.entries(tx.rawRow)
+    .map(([k, v]) => `<tr><th>${escHtml(k)}</th><td>${escHtml(String(v ?? ''))}</td></tr>`)
+    .join('');
+  overlay.innerHTML = `
+    <div class="raw-popup">
+      <div class="raw-popup-header">
+        <strong>Dane oryginalne</strong>
+        <button class="raw-popup-close btn-ghost" style="padding:0.2rem 0.5rem">✕ Zamknij</button>
+      </div>
+      <table class="raw-popup-table">${rows}</table>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('.raw-popup-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 // ─── Multi-category editor ────────────────────────────────────────────────
@@ -122,14 +272,12 @@ function openCategoryEditor(cell, tx, onDone) {
   const cats = getCategories();
   let selected = [tx.categoryId, ...(tx.extraCategoryIds || [])].filter(Boolean);
 
-  // Overlay so tapping outside on mobile closes the popup reliably
   const overlay = document.createElement('div');
   overlay.className = 'cat-editor-overlay';
 
   const popup = document.createElement('div');
   popup.className = 'cat-multi-popup';
 
-  // Position below cell on desktop; CSS overrides to bottom sheet on mobile
   const rect = cell.getBoundingClientRect();
   popup.style.top  = `${rect.bottom + window.scrollY + 4}px`;
   popup.style.left = `${rect.left   + window.scrollX}px`;
@@ -220,7 +368,6 @@ function renderManualForm(container, onSave) {
     </div>
   `;
 
-  // Toggle chips in form
   form.querySelectorAll('#m-cat-picker .cat-pick-chip').forEach(btn => {
     btn.addEventListener('click', () => btn.classList.toggle('selected'));
   });
@@ -244,6 +391,7 @@ function renderManualForm(container, onSave) {
       extraCategoryIds:   extraCats,
       categorySource:     primaryCat ? 'manual' : 'none',
       isInternalTransfer: false,
+      transferSource:     'none',
       importBatchId:      null,
       monthKey:           date.slice(0, 7),
       needsReview:        false,
@@ -283,4 +431,3 @@ function showUndoToast(container) {
     _lastDeletedTx = null;
   }, 5000);
 }
-

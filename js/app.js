@@ -43,6 +43,7 @@ function navigate(screenName) {
   if (link) link.classList.add('active');
 
   closeSidebar();
+  updateReviewBadge();
 
   if (SCREENS[screenName]) SCREENS[screenName](screen);
 }
@@ -52,6 +53,18 @@ function loadProfile(id) {
   initDB();
   updateSidebarProfile();
   navigate('dashboard');
+}
+
+function updateReviewBadge() {
+  const badge = document.getElementById('nav-badge-review');
+  if (!badge) return;
+  try {
+    const count = getTransactions().filter(t => t.needsReview && !t.isInternalTransfer).length;
+    badge.textContent  = count > 0 ? count : '';
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+  } catch (e) {
+    badge.style.display = 'none';
+  }
 }
 
 // ─── Nav links ────────────────────────────────────────────────────────────

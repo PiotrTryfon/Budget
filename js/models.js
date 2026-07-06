@@ -39,6 +39,7 @@ function createCategory(name, color) {
     id: generateId(),
     name,
     color,
+    monthlyBudget: null,
     requiresConfirmation: false,
     createdAt: new Date().toISOString(),
   };

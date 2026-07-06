@@ -112,8 +112,9 @@ function parseFile(rawText, fileName, container) {
       if (matched) { categoryId = matched.id; categorySource = 'auto'; matchedRule = null; }
     }
 
-    const category    = categories.find(c => c.id === categoryId);
-    const needsReview = !!(matchedRule?.requiresConfirmation || category?.requiresConfirmation);
+    const category         = categories.find(c => c.id === categoryId);
+    const needsReview      = !!(matchedRule?.requiresConfirmation || category?.requiresConfirmation);
+    const isInternalTransfer = applyTransferRules(raw.description, rules);
 
     return {
       date:               raw.date,
@@ -126,11 +127,11 @@ function parseFile(rawText, fileName, container) {
       categoryId,
       categorySource,
       accountId:          _pendingAccountId,
-      isInternalTransfer: false,
+      isInternalTransfer,
+      transferSource:     isInternalTransfer ? 'auto' : 'none',
       importBatchId:      null,
       needsReview,
       extraCategoryIds:   [],
-      // computed:
       id:                 '',
       _isDuplicate:       false,
     };
@@ -167,8 +168,9 @@ function parsePdfFile(text, fileName, container) {
 
   _pendingRows = parsed.map(raw => {
     const { categoryId, categorySource, matchedRule } = categorizeTransaction(raw.description, rules);
-    const category    = categories.find(c => c.id === categoryId);
-    const needsReview = !!(matchedRule?.requiresConfirmation || category?.requiresConfirmation);
+    const category         = categories.find(c => c.id === categoryId);
+    const needsReview      = !!(matchedRule?.requiresConfirmation || category?.requiresConfirmation);
+    const isInternalTransfer = applyTransferRules(raw.description, rules);
 
     return {
       date:               raw.date,
@@ -181,7 +183,8 @@ function parsePdfFile(text, fileName, container) {
       categoryId,
       categorySource,
       accountId:          _pendingAccountId,
-      isInternalTransfer: false,
+      isInternalTransfer,
+      transferSource:     isInternalTransfer ? 'auto' : 'none',
       importBatchId:      null,
       needsReview,
       extraCategoryIds:   [],
@@ -407,7 +410,10 @@ function saveImport(container, tableArea) {
       <p class="msg-success">&#10003; Zapisano ${toSave.length} transakcji.
         ${dupSkipped > 0 ? `Pominięto ${dupSkipped} duplikatów.` : ''}
       </p>
-      <button id="btn-import-another" style="margin-top:0.75rem" class="btn-ghost">Importuj kolejny plik</button>
+      <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap">
+        <button id="btn-import-another" class="btn-ghost">Importuj kolejny plik</button>
+        <button id="btn-go-transactions">Przejdź do transakcji →</button>
+      </div>
     </div>
   `;
 
@@ -415,6 +421,7 @@ function saveImport(container, tableArea) {
     tableArea.innerHTML = '';
     renderDropZone(container);
   });
+  tableArea.querySelector('#btn-go-transactions').addEventListener('click', () => navigate('transactions'));
 }
 
 // ─── Inline account creation ──────────────────────────────────────────────

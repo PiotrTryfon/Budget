@@ -51,6 +51,17 @@ function renameProfile(id, name) {
   if (p) { p.name = name.trim(); saveProfiles(all); }
 }
 
+function deleteProfile(id) {
+  saveProfiles(getProfiles().filter(p => p.id !== id));
+  const prefix = `budzet_p${id}_`;
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(prefix))
+    .forEach(k => localStorage.removeItem(k));
+  if (localStorage.getItem('budzet_current_profile') === id) {
+    localStorage.removeItem('budzet_current_profile');
+  }
+}
+
 // ─── Migration from pre-profile format ────────────────────────────────────
 
 function migrateOldData() {
@@ -108,6 +119,24 @@ function upsertCategory(cat) {
 
 function deleteCategory(id) {
   saveCategories(getCategories().filter(c => c.id !== id));
+}
+
+function moveCategoryUp(id) {
+  const cats = getCategories();
+  const idx  = cats.findIndex(c => c.id === id);
+  if (idx > 0) {
+    [cats[idx - 1], cats[idx]] = [cats[idx], cats[idx - 1]];
+    saveCategories(cats);
+  }
+}
+
+function moveCategoryDown(id) {
+  const cats = getCategories();
+  const idx  = cats.findIndex(c => c.id === id);
+  if (idx >= 0 && idx < cats.length - 1) {
+    [cats[idx], cats[idx + 1]] = [cats[idx + 1], cats[idx]];
+    saveCategories(cats);
+  }
 }
 
 // ─── Rules ────────────────────────────────────────────────────────────────

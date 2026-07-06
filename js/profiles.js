@@ -29,6 +29,7 @@ function renderProfileCards(screen, onSelect) {
   grid.innerHTML = profiles.map(p => `
     <div class="profile-card" data-id="${p.id}" tabindex="0">
       <button class="btn-rename-profile" data-id="${p.id}" title="Zmień nazwę">✎</button>
+      <button class="btn-delete-profile" data-id="${p.id}" title="Usuń profil">✕</button>
       <div class="profile-avatar">${escHtml(p.name.charAt(0).toUpperCase())}</div>
       <div class="profile-card-name">${escHtml(p.name)}</div>
     </div>
@@ -43,10 +44,23 @@ function renderProfileCards(screen, onSelect) {
   grid.querySelectorAll('.profile-card:not(.profile-card-new)').forEach(card => {
     card.addEventListener('click', e => {
       if (e.target.closest('.btn-rename-profile')) return;
+      if (e.target.closest('.btn-delete-profile')) return;
       selectProfile(card.dataset.id, onSelect);
     });
     card.addEventListener('keydown', e => {
       if (e.key === 'Enter') selectProfile(card.dataset.id, onSelect);
+    });
+  });
+
+  // Delete
+  grid.querySelectorAll('.btn-delete-profile').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id      = btn.dataset.id;
+      const profile = getProfiles().find(p => p.id === id);
+      if (!confirm(`Usunąć profil "${profile?.name || id}" i wszystkie jego dane? Tej operacji nie można cofnąć.`)) return;
+      deleteProfile(id);
+      renderProfileCards(screen, onSelect);
     });
   });
 

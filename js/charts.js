@@ -81,6 +81,7 @@ function _showChartBuilder(id, container) {
           <option value="bar-category"        ${existing?.type === 'bar-category'        ? 'selected':''}>Wydatki wg kategorii (słupki poziome)</option>
           <option value="monthly-comparison"  ${existing?.type === 'monthly-comparison'  ? 'selected':''}>Przychody vs wydatki (miesiącami)</option>
           <option value="category-trend"      ${existing?.type === 'category-trend'      ? 'selected':''}>Trend kategorii (linie)</option>
+          <option value="running-balance"     ${existing?.type === 'running-balance'     ? 'selected':''}>Saldo bieżące (kumulatywne)</option>
         </select>
       </label>
 
@@ -151,9 +152,10 @@ function _renderOneChart(view) {
   const txs  = getTransactions().filter(t => !t.isInternalTransfer);
   const cats = getCategories();
 
-  if (view.type === 'bar-category')       _chartBarCategory(canvas, wrap, view, txs, cats);
+  if (view.type === 'bar-category')            _chartBarCategory(canvas, wrap, view, txs, cats);
   else if (view.type === 'monthly-comparison') _chartMonthly(canvas, wrap, view, txs);
-  else if (view.type === 'category-trend') _chartTrend(canvas, wrap, view, txs, cats);
+  else if (view.type === 'category-trend')     _chartTrend(canvas, wrap, view, txs, cats);
+  else if (view.type === 'running-balance')    _chartRunningBalance(canvas, wrap, view, txs);
 }
 
 // Wydatki wg kategorii — horizontal bar
@@ -303,6 +305,59 @@ function _chartTrend(canvas, wrap, view, txs, cats) {
       scales: {
         y: { beginAtZero: true, ticks: { callback: v => v + ' zł' }, grid: { color: _chartGridColor() } },
         x: { grid: { display: false } },
+      },
+    },
+  });
+}
+
+// Saldo bieżące — cumulative sum line chart
+function _chartRunningBalance(canvas, wrap, view, txs) {
+  const months   = _periodMonths(view.period);
+  const monthSet = new Set(months);
+  const filtered = txs
+    .filter(t => monthSet.has(t.monthKey))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.amount - b.amount);
+
+  if (!filtered.length) { _emptyChart(wrap); return; }
+
+  let running = 0;
+  const byDay = {};
+  filtered.forEach(t => {
+    running += t.amount;
+    byDay[t.date] = parseFloat(running.toFixed(2));
+  });
+
+  const days   = Object.keys(byDay).sort();
+  const values = days.map(d => byDay[d]);
+  const color  = values[values.length - 1] >= 0 ? '#10b981' : '#ef4444';
+
+  wrap.style.height = '300px';
+
+  _chartInstances[view.id] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels:   days,
+      datasets: [{
+        label:           'Saldo',
+        data:            values,
+        borderColor:     color,
+        backgroundColor: color + '22',
+        borderWidth:     2,
+        pointRadius:     2,
+        tension:         0.2,
+        fill:            true,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)} zł` } },
+      },
+      scales: {
+        y: { ticks: { callback: v => v + ' zł' }, grid: { color: _chartGridColor() } },
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
       },
     },
   });
