@@ -41,7 +41,10 @@ function recalculateAll() {
       result = { ...result, categoryId, categorySource };
     }
 
-    if (tx.transferSource !== 'manual') {
+    // Treat old transactions with no transferSource but isInternalTransfer=true as manually set
+    const isManualTransfer = tx.transferSource === 'manual' ||
+      (tx.transferSource === undefined && tx.isInternalTransfer === true);
+    if (!isManualTransfer) {
       const isTransfer = applyTransferRules(tx.description, rules);
       result = { ...result, isInternalTransfer: isTransfer, transferSource: isTransfer ? 'auto' : 'none' };
     }

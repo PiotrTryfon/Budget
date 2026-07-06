@@ -454,7 +454,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
