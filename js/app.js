@@ -49,6 +49,7 @@ function navigate(screenName) {
 }
 
 function loadProfile(id) {
+  hideProfileScreen();
   setActiveProfile(id);
   initDB();
   updateSidebarProfile();
@@ -87,6 +88,7 @@ document.getElementById('sidebar-profile-wrap').addEventListener('click', () => 
 function _doInit() {
   var migrated = migrateOldData();
   if (migrated) {
+    hideProfileScreen();
     updateSidebarProfile();
     navigate('dashboard');
     return;
