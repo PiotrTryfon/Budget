@@ -241,8 +241,8 @@ function renderEditableTable(container) {
             ${accOptions}
           </select>
           ${_accountAutoDetected ? '<span class="badge-detected">wykryto automatycznie</span>' : ''}
-          ${!_pendingAccountId && accs.length > 0 ? '<span class="badge-warning">nie wykryto — wybierz ręcznie</span>' : ''}
-          ${accs.length === 0 ? '<a class="account-bar-hint" href="#" data-screen="settings">Dodaj konto w Ustawieniach</a>' : ''}
+          ${!_pendingAccountId ? `<span class="badge-warning">nie wykryto</span>
+            <button id="btn-new-account-inline" class="btn-ghost" style="padding:0.2rem 0.5rem;font-size:0.78rem">+ Nowe konto</button>` : ''}
         </div>
       </div>
       <div style="display:flex;gap:0.5rem;align-self:flex-start">
@@ -252,6 +252,7 @@ function renderEditableTable(container) {
       </div>
     </div>
 
+    <div id="inline-account-area"></div>
     <div class="table-wrap" style="margin-top:0.75rem">
       <table id="import-table">
         <thead>
@@ -307,11 +308,8 @@ function renderEditableTable(container) {
     });
   }
 
-  // "Dodaj konto" hint link navigates to settings
-  const hintLink = tableArea.querySelector('.account-bar-hint');
-  if (hintLink) {
-    hintLink.addEventListener('click', e => { e.preventDefault(); navigate('settings'); });
-  }
+  const newAccBtn = tableArea.querySelector('#btn-new-account-inline');
+  if (newAccBtn) newAccBtn.addEventListener('click', () => showInlineAccountForm(tableArea, container));
 
   // Field edits — update in-memory row, recalc IDs on key fields
   tableArea.querySelectorAll('.cell-input').forEach(input => {
@@ -416,6 +414,46 @@ function saveImport(container, tableArea) {
   tableArea.querySelector('#btn-import-another').addEventListener('click', () => {
     tableArea.innerHTML = '';
     renderDropZone(container);
+  });
+}
+
+// ─── Inline account creation ──────────────────────────────────────────────
+
+function showInlineAccountForm(tableArea, container) {
+  const area = tableArea.querySelector('#inline-account-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div class="panel" style="margin-top:0.75rem;max-width:440px">
+      <h4>Nowe konto</h4>
+      <label>Nazwa <input type="text" id="iaf-name" placeholder="np. Konto Pekao"></label>
+      <label>Kolor <input type="color" id="iaf-color" value="#3b82f6"></label>
+      <label>
+        Identyfikatory
+        <span class="setting-desc" style="display:block;margin:0.2rem 0 0.4rem">
+          Jeden per linia. Fragment numeru IBAN lub nazwy pliku z tego konta.
+        </span>
+        <textarea id="iaf-ids" rows="3" style="font-family:monospace;font-size:0.82rem"
+          placeholder="PL12 3456 7890...&#10;pekao.csv"></textarea>
+      </label>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+        <button id="iaf-save">Dodaj i wybierz</button>
+        <button id="iaf-cancel" class="btn-ghost">Anuluj</button>
+      </div>
+    </div>
+  `;
+  area.querySelector('#iaf-cancel').addEventListener('click', () => { area.innerHTML = ''; });
+  area.querySelector('#iaf-save').addEventListener('click', () => {
+    const name        = area.querySelector('#iaf-name').value.trim();
+    const color       = area.querySelector('#iaf-color').value;
+    const identifiers = area.querySelector('#iaf-ids').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+    if (!name) { alert('Podaj nazwę konta.'); return; }
+    const acc = createAccount(name, identifiers, color);
+    upsertAccount(acc);
+    _pendingAccountId    = acc.id;
+    _accountAutoDetected = false;
+    _pendingRows.forEach(r => { r.accountId = acc.id; });
+    renderEditableTable(container);
   });
 }
 

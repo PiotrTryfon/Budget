@@ -194,6 +194,8 @@ function showWipeConfirm(container) {
 
   box.querySelector('#btn-wipe-no').addEventListener('click', () => { box.innerHTML = ''; });
   box.querySelector('#btn-wipe-yes').addEventListener('click', () => {
+    const profile = getProfiles().find(p => p.id === getActiveProfileId());
+    logEvent('wipe', { profileName: profile?.name || '?' });
     wipeProfileData();
     box.innerHTML = '';
     navigate('dashboard');

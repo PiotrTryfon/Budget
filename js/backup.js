@@ -33,27 +33,27 @@ function renderBackup(container) {
 }
 
 async function quickExport() {
-  const json     = JSON.stringify(exportAll(), null, 2);
-  const fileName = `budzet-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const data       = exportAll();
+  const json       = JSON.stringify(data, null, 2);
+  const fileName   = `budzet-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const logDetails = { txCount: (data.transactions || []).length, catCount: (data.categories || []).length };
 
-  // File System Access API — opens native save dialog, remembers last folder
   if (typeof window.showSaveFilePicker === 'function') {
     try {
-      const handle = await window.showSaveFilePicker({
+      const handle   = await window.showSaveFilePicker({
         suggestedName: fileName,
         types: [{ description: 'JSON backup', accept: { 'application/json': ['.json'] } }],
       });
       const writable = await handle.createWritable();
       await writable.write(json);
       await writable.close();
+      logEvent('backup-export', logDetails);
       return;
     } catch (e) {
-      if (e.name === 'AbortError') return; // user cancelled the dialog
-      // fall through to anchor fallback
+      if (e.name === 'AbortError') return;
     }
   }
 
-  // Fallback: anchor download (goes to browser default downloads folder)
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -63,6 +63,7 @@ async function quickExport() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  logEvent('backup-export', logDetails);
 }
 
 function restoreBackup(file, statusEl) {
@@ -75,6 +76,10 @@ function restoreBackup(file, statusEl) {
         return;
       }
       importAll(data);
+      logEvent('backup-restore', {
+        txCount:  (data.transactions || []).length,
+        catCount: (data.categories   || []).length,
+      });
       navigate('dashboard');
     } catch {
       statusEl.className = 'msg-error';

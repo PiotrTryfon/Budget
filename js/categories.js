@@ -214,7 +214,7 @@ function showRuleForm(id, container) {
 
 // ─── Rules export / import ────────────────────────────────────────────────
 
-function exportRules() {
+async function exportRules() {
   const rules = getCategoryRules();
   const cats  = getCategories();
   const usedCatIds = new Set(rules.map(r => r.categoryId));
@@ -228,19 +228,27 @@ function exportRules() {
     rules,
   };
 
-  const json     = JSON.stringify(payload, null, 2);
-  const fileName = `budzet-rules-${new Date().toISOString().slice(0, 10)}.json`;
+  const json      = JSON.stringify(payload, null, 2);
+  const fileName  = `budzet-rules-${new Date().toISOString().slice(0, 10)}.json`;
+  const ruleCount = rules.length;
 
   if (typeof window.showSaveFilePicker === 'function') {
-    window.showSaveFilePicker({
-      suggestedName: fileName,
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-    }).then(handle => handle.createWritable())
-      .then(w => w.write(json).then(() => w.close()))
-      .catch(e => { if (e.name !== 'AbortError') fallbackDownload(json, fileName); });
-  } else {
-    fallbackDownload(json, fileName);
+    try {
+      const handle   = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(json);
+      await w.close();
+      logEvent('rules-export', { ruleCount });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
   }
+  fallbackDownload(json, fileName);
+  logEvent('rules-export', { ruleCount });
 }
 
 function fallbackDownload(content, fileName) {
@@ -494,6 +502,7 @@ function executeRulesImport(items, newCats, importedCats, container) {
     added++;
   });
 
+  logEvent('rules-import', { added, replaced, skipped, catsCreated });
   recalculateAll();
   renderCatList(container);
   renderRuleList(container);

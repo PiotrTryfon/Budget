@@ -4,6 +4,7 @@ const SCREENS = {
   transactions: renderTransactions,
   categories:   renderCategories,
   charts:       renderCharts,
+  log:          renderLog,
   backup:       renderBackup,
   settings:     renderSettings,
 };

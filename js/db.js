@@ -188,6 +188,17 @@ function wipeProfileData() {
   saveCategories(DEFAULT_CATEGORIES.map(c => createCategory(c.name, c.color)));
 }
 
+// ─── Event log ────────────────────────────────────────────────────────────
+
+function getEventLog()        { return dbLoad(pk('eventlog')); }
+function saveEventLog(events) { dbSave(pk('eventlog'), events); }
+
+function logEvent(type, details) {
+  const events = getEventLog();
+  events.push({ id: generateId(), type, timestamp: new Date().toISOString(), details: details || {} });
+  saveEventLog(events);
+}
+
 // ─── Backup / restore ─────────────────────────────────────────────────────
 
 function exportAll() {
